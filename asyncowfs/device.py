@@ -31,6 +31,7 @@ dev_classes = dict()
 
 def register(cls):
     dev_classes[cls.family] = cls
+    return cls
 
 
 def split_id(id):  # pylint: disable=redefined-builtin
@@ -436,7 +437,7 @@ class Device(SubDir):
         await self.bus._del_device(self)
         self.bus = None
         for t in self._poll.values():
-            await t.cancel()
+            t.cancel()
         self._poll = {}
         await self.service.push_event(DeviceNotFound(self))
 
@@ -460,6 +461,7 @@ class Device(SubDir):
                 dev = dev[k]
             else:
                 dev = getattr(dev, k)
+        #if type(dev) in (int, str): return dev
         return await dev
 
     async def set(self, *attrs, value):
@@ -517,7 +519,7 @@ class Device(SubDir):
             if hasattr(self, "poll_" + styp):
                 await self.bus.update_poll()
             else:
-                await self._set_poll_task(typ, value)
+                await self._set_poll_task(styp, value)
 
     async def _set_poll_task(self, typ, value):
         async with self._task_lock:
@@ -526,7 +528,7 @@ class Device(SubDir):
             except KeyError:
                 pass
             else:
-                await task.cancel()
+                task.cancel()
             if not value:
                 return
 
@@ -552,7 +554,7 @@ class Device(SubDir):
                 else:
                     v = await getattr(s, n)
             except Exception as exc:
-                logger.error("Reader at %s %s: %r", self, typ, exc)
+                #logger.exception("Reader at %s %s", self, typ)
                 await self.service.push_event(DeviceException(self, typ, exc))
             else:
                 await self.service.push_event(DeviceValue(self, typ, v))
@@ -621,12 +623,16 @@ class TemperatureDevice(Device):
 
     async def poll_temperature(self, simul=False):
         # Bug workaround
-        t = await (self.latesttemp if simul and len(self.bus.path)<=1 else self.temperature)
-        if t == 85:
-            logger.error("TEMP: got 85 on %r", self)
-            return
-
-        await self.service.push_event(DeviceValue(self, "temperature", t))
+        try:
+            t = await (self.latesttemp if simul and len(self.bus.path)<=1 else self.temperature)
+            if t == 85:
+                logger.error("TEMP: got 85 on %r", self)
+                return
+        except Exception as exc:
+            #logger.exception("Reader at %s temperature", self)
+            await self.service.push_event(DeviceException(self, "temperature", exc))
+        else:
+            await self.service.push_event(DeviceValue(self, "temperature", t))
 
 
 #   @property
@@ -635,7 +641,7 @@ class TemperatureDevice(Device):
 
 
 @register
-class TemperatureBDevice(Device):
+class TemperatureBDevice(TemperatureDevice):
     family = 0x28
 
 
@@ -681,8 +687,13 @@ class VoltageDevice(Device):
         yield "alarm"
 
     async def poll_voltage(self, simul=False):
-        v = await self.volt_all
-        await self.service.push_event(DeviceValue(self, "volt_all", v))
+        try:
+            v = await self.volt_all
+        except Exception as exc:
+            #logger.exception("Reader at %s temperature", self)
+            await self.service.push_event(DeviceException(self, "volt_all", exc))
+        else:
+            await self.service.push_event(DeviceValue(self, "volt_all", v))
 
 
 @register

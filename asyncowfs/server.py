@@ -247,8 +247,7 @@ class Server:
         await anyio.sleep(initial_interval)
 
         while True:
-            async with self._scan_lock:
-                await self.scan_now(polling=polling)
+            await self.scan_now(polling=polling)
             if not interval:
                 return
             i = interval
@@ -266,7 +265,7 @@ class Server:
                 await self._scan_base(polling=polling)
 
     async def _scan_base(self, polling=True):
-        old_paths = set()
+        old_paths = set(self._buses.keys())
 
         # step 1: enumerate
         try:
@@ -324,7 +323,7 @@ class Server:
             initial_scan = False
 
         if initial_scan or scan:
-            self._scan_task = await self._current_tg.start_soon(
+            self._scan_task = self._current_tg.start_soon(
                 self._scan, scan, initial_scan, polling, random
             )
 

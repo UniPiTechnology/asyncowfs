@@ -24,7 +24,7 @@ class ValueEvent:
         """Set the internal flag value to True, and wake any waiting tasks."""
         self.value = outcome.Value(value)
         self.event.set()
-        return anyio.DeprecatedAwaitable(self.set)
+        #return anyio.DeprecatedAwaitable(self.set)
 
     def is_set(self):
         return self.value is not None
@@ -33,11 +33,11 @@ class ValueEvent:
         """Set the internal flag value to True, and wake any waiting tasks."""
         self.value = outcome.Error(exc)
         self.event.set()
-        return anyio.DeprecatedAwaitable(self.set_error)
+        #return anyio.DeprecatedAwaitable(self.set_error)
 
     def cancel(self):
         self.set_error(CancelledError())
-        return anyio.DeprecatedAwaitable(self.cancel)
+        #return anyio.DeprecatedAwaitable(self.cancel)
 
     async def get(self):
         """Block until the internal flag value becomes True.

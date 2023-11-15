@@ -8,6 +8,8 @@ import anyio
 from .device import NotADevice, split_id, NoLocationKnown
 from .event import BusAdded, BusDeleted, DeviceAlarm
 from .error import OWFSReplyError
+#!!!!
+from asyncio import CancelledError
 
 import logging
 
@@ -62,6 +64,10 @@ class Bus:
             for b in self.buses:
                 await b.delocate()
             self._buses = None
+        for j in self._tasks.values():
+            j.cancel()
+        self._tasks = dict()
+
         if self._devices:
             for d in self.devices:
                 await d.delocate(bus=self)
@@ -112,7 +118,7 @@ class Bus:
 
         for d in old_devs:
             dev = self._devices[d]
-            if dev._unseen > 2:
+            if True or dev._unseen > 2:
                 await dev.delocate(self)
             else:
                 dev._unseen += 1
@@ -144,7 +150,7 @@ class Bus:
         old_items = set(self._tasks.keys()) - items
         for x in old_items:
             j = self._tasks.pop(x)
-            await j.cancel()
+            j.cancel()
 
         self._intervals.update(intervals)
         self._random.update(randoms)
@@ -201,6 +207,8 @@ class Bus:
             else:
                 async with self.server.simul_lock:
                     await p()
+        #except CancelledError:
+        #    pass
         except OWFSReplyError:
             logger.exception("Poll '%s' on %s", name, self)
 
